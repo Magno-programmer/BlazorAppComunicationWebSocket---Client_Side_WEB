@@ -18,19 +18,19 @@ ________________________________________
 ```
 git clone https://github.com/Magno-programmer/BlazorAppComunicationWebSocket---Client_Side_WEB.git
 ```
-3.	Navegar para o Diretório do Projeto
+2.	Navegar para o Diretório do Projeto
 ```
 cd BlazorAppComunicationWebSocket---Client_Side_WEB
 ```
-4.	Restaurar Dependências
+3.	Restaurar Dependências
 ```
 dotnet restore
 ```
-5.	Compilar o Projeto
+4.	Compilar o Projeto
 ```
 dotnet build
 ```
-6.	Executar o Projeto
+5.	Executar o Projeto
 ```
 dotnet run
 ```
