@@ -120,8 +120,3 @@ O projeto **BlazorAppComunicationWebSocket---Client_Side_WEB** é uma aplicaçã
 Este projeto demonstra o poder do Blazor combinado com comunicação em tempo real via WebSocket. Ele é uma base sólida para aplicações mais complexas que exigem atualizações dinâmicas e uma interface responsiva.
 
 **Agradecimentos:** Este projeto foi desenvolvido com o objetivo de explorar tecnologias modernas e aplicá-las em cenários reais.
-
-
-## Conclusão
-Este projeto demonstra o poder do Blazor combinado com comunicação em tempo real via WebSocket. Ele é uma base sólida para aplicações mais complexas que exigem atualizações dinâmicas e uma interface responsiva.  
-Agradecimentos: Este projeto foi desenvolvido com o objetivo de explorar tecnologias modernas e aplicá-las em cenários reais.
