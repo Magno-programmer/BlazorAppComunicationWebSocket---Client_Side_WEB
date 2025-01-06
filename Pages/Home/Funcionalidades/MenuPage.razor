@@ -1,0 +1,104 @@
+﻿@page "/MenuPage"
+@using System.Net.WebSockets
+@using System.Text
+@using BlazorAppComunicationWebSocket.Services;
+@using System.Text.RegularExpressions
+@inject NavigationManager Navigation
+@inject WebSocketService WebService
+
+<h3>WebSocket inforlube - MenuPage</h3>
+<div>
+    <div style="margin: 10px">
+        <h4>Cadastro e listage Postgres</h4>
+        <button @onclick="() => SendOption(1)">Cadastro de consumidor Postgres</button>
+        <button @onclick="() => SendOption(4)">Listagem de consumidores Postgres</button>
+    </div>
+    <div style="margin: 10px">
+        <h4>Cadastro e listage MySQL</h4>
+        <button @onclick="() => SendOption(2)">Cadastro de consumidor MySQL</button>
+        <button @onclick="() => SendOption(5)">Listagem de consumidores MySQL</button>
+    </div>
+    <div style="margin: 10px">
+        <h4>Cadastro e listage SQLite</h4>
+        <button @onclick="() => SendOption(3)">Cadastro de consumidor SQLite</button>
+        <button @onclick="() => SendOption(6)">Listagem de consumidores SQLite</button>
+    </div>
+    <div style="margin: 10px">
+        <h4>Gerador de Graficosl</h4>
+        <button @onclick="() => SendOption(7)">Gerador de Graficos</button>
+    </div>
+    <div style="margin: 10px">
+        <h4>Chat Tempo Real</h4>
+        <button @onclick="() => SendOption(8)">Chat em tempo real</button>
+        <button @onclick="GoBack">Desconectar</button>
+    </div>
+</div>
+
+@if (error)
+{
+    <div style="color: red;">
+        @MessageError
+    </div>
+}
+
+@code {
+    private string MessageError = string.Empty;
+    private bool error = false;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            //Testando a conexão
+            await WebService.ConnectAsync();
+        }
+        catch (WebSocketException wex)
+        {
+            MessageError = $"Ocorreu um erro ao tentar se desconectar do servidor";
+            Console.WriteLine($"Error no WebSocket OnInitializedAsync: {wex.Message}");
+        }
+        catch (Exception ex)
+        {
+            MessageError = $"Ocorreu um erro ao tentar se desconectar do servidor";
+            Console.WriteLine($"Error no OnInitializedAsync: {ex.Message}");
+        }
+    }
+
+    private void GoBack()
+    {
+        try
+        {
+            WebService?.DisposeAsync();
+            WebService!.isConnect = false;
+            Navigation.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            error = true;
+            MessageError = $"Ocorreu um erro ao tentar se desconectar do servidor";
+            Console.WriteLine($"Erro no GoBack: {ex.Message}");
+        }
+    }
+
+    public void SendOption(int opcao)
+    {
+        try
+        {
+            if (opcao == 1) Navigation.NavigateTo("/CadastroDeConsumidorPostgres");
+            else if (opcao == 2) Navigation.NavigateTo("/CadastroDeConsumidorMySQL");
+            else if (opcao == 3) Navigation.NavigateTo("/CadastroDeConsumidorSQLite");
+            else if (opcao == 4) Navigation.NavigateTo("/ListagemDeConsumidoresPostgres");
+            else if (opcao == 5) Navigation.NavigateTo("/ListagemDeConsumidoresMySQL");
+            else if (opcao == 6) Navigation.NavigateTo("/ListagemDeConsumidoresSQLite");
+            else if (opcao == 7) Navigation.NavigateTo("/GraphicGeneration");
+            else Navigation.NavigateTo("/RealTimeChat");
+        }
+        catch (Exception ex)
+        {
+            MessageError = $"Ocorreu um erro ao escolher essa opção";
+            Console.WriteLine($"Error no SendOption: {ex.Message}");
+        }
+    }
+
+}

@@ -1,0 +1,74 @@
+﻿@page "/GraphicGeneration"
+@inject NavigationManager Navigation
+@inject WebSocketService WebService
+@using System.Net.WebSockets
+@using System.Text
+@using BlazorAppComunicationWebSocket.Services
+
+<h3>Gráfico Gerado via WebSocket</h3>
+
+@if (!string.IsNullOrEmpty(GraphBase64))
+{
+    <img src="data:image/png;base64,@GraphBase64" alt="Gráfico Gerado" style="width: 600px; height: auto;" />
+}
+else
+{
+    <p>Aguardando gráfico...</p>
+}
+
+
+<button @onclick="Menu">Voltar</button>
+@code {
+    private string GraphBase64 = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        WebService.OnMessageReceived += HandleMessageReceived;
+
+        // Solicita o gráfico automaticamente ao carregar a página
+        await RequestGraph();
+    }
+
+    private void HandleMessageReceived()
+    {
+        // Pega a última mensagem da lista
+        var lastMessage = WebService.Messages.LastOrDefault();
+
+        if (!string.IsNullOrEmpty(lastMessage) && WebSocketService.IsBase64String(lastMessage))
+        {
+            GraphBase64 = lastMessage;
+            InvokeAsync(StateHasChanged); // Atualiza a interface do usuário
+        }
+    }
+
+    private void Menu()
+    {
+        try
+        {
+            Navigation.NavigateTo("/MenuPage");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro no Menu: {ex.Message}");
+        }
+    }
+
+    private async Task RequestGraph()
+    {
+        try
+        {
+            if (WebService.isConnect)
+            {
+                await WebService.SendMessageAsync("generate_graph");
+            }
+            else
+            {
+                Console.WriteLine("Conexão WebSocket não está aberta.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao solicitar gráfico: {ex.Message}");
+        }
+    }
+}

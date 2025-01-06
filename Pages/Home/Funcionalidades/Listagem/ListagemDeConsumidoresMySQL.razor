@@ -1,0 +1,119 @@
+﻿@page "/ListagemDeConsumidoresMySQL"
+@using System.Net.WebSockets
+@using System.Text
+@using BlazorAppComunicationWebSocket.Models
+@using BlazorAppComunicationWebSocket.Services
+@using System.Text.Json
+@inject NavigationManager Navigation
+@inject WebSocketService WebService
+
+<h3>Listagem de Consumidores MySQL</h3>
+
+<button @onclick="FetchConsumers">Buscar Consumidores</button>
+<button @onclick="GoBack">Desconectar</button>
+<button @onclick="Menu">Voltar</button>
+
+@foreach (var consumers in WebService.ConsumerList)
+{
+    <div>@consumers</div>
+}
+
+@if(error)
+{
+    <div style="color: red;">
+        @MessageError
+    </div>
+}
+
+@code {
+    private List<Consumidor> consumidores = new List<Consumidor>();
+    private string MessageError = string.Empty;
+    private bool error = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            WebService.OnMessageReceived += UpdateUI;
+            error = false;
+            // Testando a conexão
+            await WebService.ConnectAsync();
+            if (WebService.isConnect)
+                _ = ListenServer();
+        }
+        catch (Exception ex)
+        {
+            error = true;
+            MessageError = $"Ocorreu um erro ao se conectar à rede";
+            Console.WriteLine($"Erro no WebSocket OnInitializedAsync: {ex.Message}");
+        }
+    }
+
+    private void Clear() => WebService.ConsumerList.Clear();
+
+    private void UpdateUI() => InvokeAsync(StateHasChanged);
+
+    private void GoBack()
+    {
+        try
+        {
+            WebService?.DisposeAsync();
+            WebService!.isConnect = false;
+            Clear();
+            Navigation.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            error = true;
+            MessageError = $"Ocorreu um erro ao tentar se desconectar do servidor";
+            Console.WriteLine($"Erro no GoBack: {ex.Message}");
+        }
+    }
+
+
+    private void Menu()
+    {
+        try
+        {
+            Clear();
+            Navigation.NavigateTo("/MenuPage");
+        }
+        catch (Exception ex)
+        {
+            error = true;
+            MessageError = $"Ocorreu um erro ao tentar voltar pro menu";
+            Console.WriteLine($"Erro no Menu: {ex.Message}");
+        }
+    }
+
+    private async Task FetchConsumers()
+    {
+        try
+        {
+            // Envia a solicitação para buscar consumidores
+            await WebService.SendMessageAsync("Listar_todos_consumidoresMySQL:");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao solicitar consumidores: {ex.Message}");
+        }
+    }
+
+    public async Task ListenServer()
+    {
+        try
+        {
+            while (WebService.WebSocket.State == WebSocketState.Open)
+            {
+                await WebService.ReceivingMessage();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (Exception ex)
+        {
+            error = true;
+            MessageError = $"Ocorreu um erro ao tentar receber uma mensagem ao servidor";
+            Console.WriteLine($"Erro no ListenServer: {ex.Message}");
+        }
+    }
+}

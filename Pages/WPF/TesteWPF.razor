@@ -1,0 +1,40 @@
+﻿@page "/WPF"
+@using Microsoft.JSInterop
+
+<h3>Blazor WebAssembly - Tela Única</h3>
+
+<div style="margin-top: 20px;">
+    <h4>Input e Botões</h4>
+
+    <!-- Input -->
+    <input @bind="InputValue" id="inputField" style="width: 300px; height: 30px;" placeholder="Digite algo..." />
+
+    <!-- Botões -->
+    <div style="margin-top: 10px;">
+        <button class="btn btn-primary" @onclick="AlterarTexto">Alterar Texto</button>
+        <button class="btn btn-secondary" @onclick="MostrarTexto">Mostrar Valor do Input</button>
+    </div>
+</div>
+
+<div style="margin-top: 20px;">
+    <h4>Texto do Botão Atual:</h4>
+    <p>@TextoBotao</p>
+</div>
+
+@code {
+    // Variáveis para o input e o texto do botão
+    private string InputValue { get; set; } = "";
+    private string TextoBotao { get; set; } = "Texto Original";
+
+    // Método para alterar o texto do input
+    private void AlterarTexto()
+    {
+        InputValue = "Texto alterado pelo botão!";
+    }
+
+    // Método para mostrar o valor atual do input
+    private void MostrarTexto()
+    {
+        TextoBotao = InputValue;
+    }
+}

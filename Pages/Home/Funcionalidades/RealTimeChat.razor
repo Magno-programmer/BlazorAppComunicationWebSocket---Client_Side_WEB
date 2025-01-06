@@ -1,0 +1,395 @@
+﻿@page "/RealTimeChat"
+@using System.Net.WebSockets
+@using System.Text
+@using BlazorAppComunicationWebSocket.Services;
+@using System.Text.RegularExpressions
+@inject NavigationManager Navigation
+@inject WebSocketService WebService
+
+
+<!-- ---------------------------------HTML DA PÁGINA------------------------------------- -->
+
+<h3>WebSocket inforlube- RealTimeChat</h3>
+<p>Mensagens para cliente específico digite: <strong>::*nome* [Conteúdo da mensagem]</strong></p>
+<p>Mensagens para ChatGPT digite: <strong>::chat [Conteúdo da mensagem]</strong></p>
+
+<div id="messages" style="border: 1px solid #ddd; padding: 10px; margin-top: 10px; height: 140px; overflow-y: scroll; word-wrap: break-word;">
+    @foreach (var message in WebService.Messages)
+    {
+        if (message.StartsWith("Excel:"))
+        {
+            string messageDeArquivo = message.Replace("Excel: ", "");
+
+            <div>
+                @messageDeArquivo
+            </div>
+        }
+        else
+        {
+            <div>@message</div>
+        }
+    }
+</div>
+<div>
+    <input @bind="userMessage" @onkeydown="KeyPressingEnter" type="text" placeholder="Type your message..." />
+    <button @onclick="SendMensage">Send</button>
+</div>
+
+<div>
+    <InputFile OnChange="OnImageSelected" accept="image/*" />
+    <button @onclick="SendImage" disabled="@(!isImageSelected)">Send Image</button>
+</div>
+
+<div>
+    <input @bind="specificClientName" placeholder="Digite o nome do cliente" />
+    <InputFile OnChange="OnImageSelected" accept="image/*" />
+    <button @onclick="SendImageToSpecificClient" disabled="@(!isImageSelected)">Send Image for specific client</button>
+</div>
+
+<div>
+    <button @onclick="SendExcelData">Receber Excel do servidor</button>
+    <button @onclick="Clear">Limpar Chat</button>
+    <button @onclick="GoBack">Desconectar</button>
+    <button @onclick="Menu">Voltar</button>
+</div>
+
+@if (sendAExcel)
+{
+    <div>
+
+        <div>Escolha uma das opções abaixo: </div>
+        <div>
+            <button @onclick="() => SendAnswear(1)">Baixar Excel</button>
+            <button @onclick="() => SendAnswear(2)">Baixar DataSet</button>
+            <button @onclick="() => SendAnswear(3)">Saber tamanho do Excel</button>
+            <button @onclick="() => SendAnswear(4)" disabled="@(!@inputVazio)">Baixar Excel específico</button>
+            <button @onclick="() => SendAnswear(5)" disabled="@(!@inputVazio)">Baixar DataSet específico</button>
+            <button @onclick="() => SendAnswear(6)" disabled="@(!@inputVazio)">Saber tamanho de um Excel específico</button>
+        </div>
+
+        <div>
+            <InputFile OnChange="OnFileSelected" accept=".xlsx, .xls" />
+            <button @onclick="() => SendAnswear(7)" disabled="@(!@isFileSelected)">Enviar um Excel para o servidor</button>
+        </div>
+
+        <div>
+            <button @onclick="() => SendAnswear(8)">Saber Excels Disponíveis no servidor</button>
+        </div>
+        
+        <div>
+            <input @bind="specificExcelName" @oninput="ExistCharacter" placeholder="Digite o nome do excel" />
+        </div>
+
+    </div>
+}
+
+
+<!-- ---------------------------------HTML DA PÁGINA------------------------------------- -->
+
+
+@code {
+
+    private string userMessage = string.Empty; 
+    private string specificClientName = string.Empty;
+    private string specificExcelName = string.Empty;
+    private string selectedFileName = string.Empty;
+    private byte[]? selectedFileBytes;                  // Armazena os bytes do Excel selecionado
+    private byte[]? selectedImageBytes;                 // Armazena os bytes da imagem selecionada
+    private bool isImageSelected = false;               // Flag para verificar se uma imagem foi selecionada
+    private bool isFileSelected = false;               // Flag para verificar se um Excel foi selecionada
+    private bool inputVazio;                       // Flag para verificar se um nome foi requisitado
+    private bool sendAExcel = false;               // Flag para verificar se o cliente quer requisitar informações sobre o excel
+
+    protected override async Task OnInitializedAsync()
+    {
+        WebService.OnMessageReceived += UpdateUI;
+        try
+        {
+            //Testando a conexão
+            await WebService.ConnectAsync();
+            if (WebService.isConnect)
+                _ = ListenServer();
+        }
+        catch (WebSocketException wex)
+        {
+            WebService.Messages.Add($"Ocorreu um erro ao se conectar a rede");
+            Console.WriteLine($"Error no WebSocket OnInitializedAsync: {wex.Message}");
+        }
+        catch (Exception ex)
+        {
+            WebService.Messages.Add($"Ocorreu um erro ao se conectar a rede");
+            Console.WriteLine($"Error no OnInitializedAsync: {ex.Message}");
+        }
+    }
+
+
+    /*----------------------------------METODOS DE ENVIO----------------------------------------*/
+
+    private async Task SendMensage()
+    {
+        if (string.IsNullOrWhiteSpace(userMessage))
+            return;
+        try
+        {
+            WebService.Messages.Add($"{userMessage}");
+            await WebService.SendMessageAsync(userMessage);
+            userMessage = string.Empty;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            WebService.Messages.Add($"Ocorreu um erro ao enviar a mensagem");
+            Console.WriteLine($"Error no SendMensage: {ex.Message}");
+        }
+    }
+
+    // Método para enviar a imagem
+    private async Task SendImage()
+    {
+        if (selectedImageBytes is null || !isImageSelected)
+            return;
+
+        try
+        {
+            string teste = Convert.ToBase64String(selectedImageBytes);
+            await WebService.SendMessageAsync(teste);
+
+            WebService.Messages.Add("Imagem enviada com sucesso.");
+            isImageSelected = false; // Reseta o flag após o envio
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            WebService.Messages.Add($"Ocorreu um erro ao enviar a imagem");
+            Console.WriteLine($"Error no SendImage: {ex.Message}");
+        }
+    }
+
+    // Método para enviar a imagem para cliente específico
+    private async Task SendImageToSpecificClient()
+    {
+        if (selectedImageBytes is null || string.IsNullOrWhiteSpace(specificClientName))
+            return;
+
+        try
+        {
+            string imageMessage = $"::{specificClientName} {Convert.ToBase64String(selectedImageBytes)}";
+            await WebService.SendMessageAsync(imageMessage);
+
+            WebService.Messages.Add($"Imagem enviada para {specificClientName} com sucesso.");
+            specificClientName = string.Empty;
+            isImageSelected = false; // Reseta o flag após o envio
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            WebService.Messages.Add($"Ocorreu um erro ao enviar a imagem");
+            Console.WriteLine($"Error no SendImageToSpecificClient: {ex.Message}");
+        }
+    }
+
+    private async Task SendExcelData()
+    {
+        try
+        {
+            WebService.Messages.Add("Solicitando dados do Excel...");
+            sendAExcel = true; // Libera a seleção para requisições sobre o excel
+            await InvokeAsync(StateHasChanged);
+            Clear();
+        }
+        catch (Exception ex)
+        {
+            WebService.Messages.Add($"Ocorreu um erro ao pedir dados do excel");
+            Console.WriteLine($"Error no SendExcelData: {ex.Message}");
+        }
+    }
+
+    private async Task SendAnswear(int respostaNumerica)
+    {
+        try
+        {
+            string resposta;
+
+            if (respostaNumerica == 1) resposta = $"Download_do_excel";
+            else if (respostaNumerica == 2) resposta = $"Download_do_dataset";
+            else if (respostaNumerica == 3) resposta = $"Tamanho_do_excel";
+            else if (respostaNumerica == 4) resposta = $"Baixar_Excel_especifico: {specificExcelName}";
+            else if (respostaNumerica == 5) resposta = $"Baixar_dataset_especifico: {specificExcelName}";
+            else if (respostaNumerica == 6) resposta = $"Tamanho_do_Excel_especifico: {specificExcelName}";
+            else if (respostaNumerica == 7) resposta = $"Enviar_excel_para_o_servidor {selectedFileName}:{Convert.ToBase64String(selectedFileBytes!)}";
+            else resposta = $"Pesquisa_dos_exceis_disponiveis";
+
+            await WebService.SendMessageAsync($"{resposta}");
+            Clear();
+            specificExcelName = "";
+            inputVazio = false;
+            sendAExcel = false;
+            isFileSelected = false;
+
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            WebService.Messages.Add($"Ocorreu um erro ao pedir dados do excel");
+            Console.WriteLine($"Error no SendAnswear: {ex.Message}");
+        }
+    }
+
+    /*----------------------------------METODOS DE ENVIO----------------------------------------*/
+
+
+
+
+
+
+
+    /*-------------------------------METODOS VOID E DE EVENTOS----------------------------------*/
+
+    private void Clear() => WebService.Messages.Clear();
+
+    private void UpdateUI() => InvokeAsync(StateHasChanged);
+
+    private void Menu()
+    {
+        try
+        {
+            Clear();
+            Navigation.NavigateTo("/MenuPage");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro no Menu: {ex.Message}");
+        }
+    }
+
+    private void GoBack()
+    {
+        WebService?.DisposeAsync();
+        WebService!.isConnect = false;
+        Clear();
+        Navigation.NavigateTo("/");
+    }
+
+    private void ExistCharacter(ChangeEventArgs e)
+    {
+
+        specificExcelName = e.Value!.ToString()!;
+        inputVazio = specificExcelName.Length > 0;
+    }
+
+    private async Task KeyPressingEnter(KeyboardEventArgs e)
+    {
+        try
+        {
+            if (e.Key == "Enter")
+            {
+                await SendMensage();
+            }
+        }
+        catch (Exception ex)
+        {
+            WebService.Messages.Add($"Ocorreu um erro ao tentar enviar mensagem");
+            Console.WriteLine($"Error no KeyPressingEnter: {ex.Message}");
+        }
+    }
+
+    // Método para selecionar a imagem
+    private async Task OnImageSelected(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file is not null)
+            {
+                using var stream = new MemoryStream();
+                await Task.Run(() => file.OpenReadStream().CopyToAsync(stream));
+                selectedImageBytes = stream.ToArray();
+                isImageSelected = true; // Marca a imagem como selecionada
+            }
+
+        }
+        catch (Exception ex)
+        {
+            WebService.Messages.Add($"Ocorreu um erro ao tentar selecionar a imagem");
+            Console.WriteLine($"Error no OnImageSelected: {ex.Message}");
+        }
+    }
+
+
+    // Método para selecionar um arquivo Excel
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file is not null)
+            {
+                // Captura o nome do arquivo
+                selectedFileName = file.Name;
+
+                // Verifica se o arquivo é um Excel pelos tipos MIME comuns
+                var validExcelTypes = new[] { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel" };
+                if (!validExcelTypes.Contains(file.ContentType))
+                {
+                    WebService.Messages.Add("Por favor, selecione um arquivo Excel válido.");
+                    return;
+                }
+
+                // Lê o conteúdo do arquivo Excel para um array de bytes
+                using var stream = new MemoryStream();
+                await file.OpenReadStream().CopyToAsync(stream);
+                selectedFileBytes = stream.ToArray();
+                isFileSelected = true; // Marca o arquivo como selecionado
+            }
+        }
+        catch (Exception ex)
+        {
+            WebService.Messages.Add($"Ocorreu um erro ao tentar selecionar o arquivo Excel");
+            Console.WriteLine($"Error no OnFileSelected: {ex.Message}");
+        }
+    }
+
+    /*-------------------------------METODOS VOID E DE EVENTOS----------------------------------*/
+
+
+
+
+
+    /*---------------------------------METODOS DE VALIDAÇÃO-------------------------------------*/
+
+    public async Task ListenServer()
+    {
+        try
+        {
+            while (WebService.WebSocket.State == WebSocketState.Open)
+            {
+                await WebService.ReceivingMessage();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (Exception ex)
+        {
+            WebService.Messages.Add($"Ocorreu um erro ao tentar enviar mensagem ao servidor");
+            Console.WriteLine($"Error no ListenServer: {ex.Message}");
+        }
+    }
+
+    private static bool IsBase64String(string base64)
+    {
+        try
+        {
+            // Check if a string is Base64 encoded
+            base64 = base64.Trim();
+            return (base64.Length % 4 == 0) && Regex.IsMatch(base64, @"^[a-zA-Z0-9\+/]*={0,2}$", RegexOptions.None);
+
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error no IsBase64String: {ex.Message}");
+            return false;
+        }
+    }
+
+    /*---------------------------------METODOS DE VALIDAÇÃO-------------------------------------*/
+}
+

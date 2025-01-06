@@ -1,0 +1,122 @@
+﻿@page "/PageLogin"
+@using System.Net.WebSockets
+@using System.Text
+@using BlazorAppComunicationWebSocket.Services;
+@inject WebSocketService WebService
+@inject NavigationManager Navigation
+
+@if (WebService.isConnect)
+{
+    <h3>WebSocket inforlube - Login</h3>
+    <p>Conectado com sucesso</p>
+
+    <input @bind="login" type="text" placeholder="Digite login" />
+    <input @bind="senha" type="password" @oninput="TamanhoValido" placeholder="Digite sua senha" />
+    <button @onclick="Logar" disabled="@(!passwordLength)" >Entrar</button>
+    @foreach (var message in WebService.Messages)
+    {
+        if (message.StartsWith("Failure:"))
+        {
+            string messageError = message.Replace("Failure: ", "");
+            <div style="color: red;">
+                @messageError
+            </div>
+        }
+        else if (message.StartsWith("Successful:"))
+        {
+            WebService.Messages.Clear();
+            Navigation.NavigateTo("/MenuPage");
+        }
+    }
+}
+else
+{
+    Navigation.NavigateTo("/");
+}
+
+
+@code {
+    private string login = string.Empty;
+    private string senha = string.Empty;
+    private bool isConnected;
+    private bool passwordLength;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            //Testando a conexão
+            await WebService.ConnectAsync();
+            isConnected = WebService.isConnect;
+            _ = ListenServer();
+        }
+        catch (WebSocketException wex)
+        {
+            WebService.Messages.Add($"Ocorreu um erro ao se conectar a rede");
+            Console.WriteLine($"Error no WebSocket OnInitializedAsync: {wex.Message}");
+        }
+        catch (Exception ex)
+        {
+            WebService.Messages.Add($"Ocorreu um erro ao tentar se conectar ao servidor");
+            Console.WriteLine($"Error no OnInitializedAsync: {ex.Message}");
+        }
+    }
+
+    private void TamanhoValido(ChangeEventArgs e)
+    {
+        try
+        {
+            senha = e.Value!.ToString()!;
+            passwordLength = senha.Length >= 6;
+            
+        }
+        catch (Exception ex)
+        {
+            WebService.Messages.Add($"Ocorreu um erro ao verificar o tamanho da senha");
+            Console.WriteLine($"Error no TamanhoValido: {ex.Message}");
+        }
+
+    }
+
+    private async void Logar()
+    {
+        try
+        {
+            WebService.name = login;
+            string logar = $"{login}:{senha}";
+            await WebService.SendMessageAsync(logar);
+
+            if (WebService.Messages.Contains("Successful"))
+            {
+                Navigation.NavigateTo("/MenuPage");
+            }
+            else
+            {
+                Navigation.NavigateTo("/PageLogin");
+            }
+        }
+        catch (Exception ex)
+        {
+            WebService.Messages.Add($"Ocorreu um erro ao tentar logar");
+            Console.WriteLine($"Error no Logar: {ex.Message}");
+        }
+    }
+
+    public async Task ListenServer()
+    {
+        try
+        {
+            while (WebService.WebSocket.State == WebSocketState.Open)
+            {
+                await WebService.ReceivingMessage();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (Exception ex)
+        {
+            WebService.Messages.Add($"Ocorreu um erro ao tentar enviar mensagem ao servidor");
+            Console.WriteLine($"Error no ListenServer: {ex.Message}");
+        }
+    }
+
+}

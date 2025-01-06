@@ -1,0 +1,237 @@
+﻿@page "/CadastroDeConsumidorPostgres"
+@using System.Net.WebSockets
+@using System.Text
+@using BlazorAppComunicationWebSocket.Models
+@using BlazorAppComunicationWebSocket.Services
+@using System.Text.Json
+@inject NavigationManager Navigation
+@inject WebSocketService WebService
+
+<h3>WebSocket inforlube - Cadastro de Consumidor Postgres</h3>
+
+<div class="form-container">
+    <EditForm Model="@consumidor" OnValidSubmit="HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="form-group">
+            <label for="nm_consumidor">Nome do Consumidor</label>
+            <InputText id="nm_consumidor" @bind-Value="consumidor.nm_consumidor" placeholder="Digite o nome completo" class="form-control" maxlength="100"/>
+        </div>
+
+        <div class="form-group">
+            <label for="nr_documento">Número do Documento</label>
+            <InputText id="nr_documento" @bind-Value="consumidor.nr_documento" placeholder="Digite o CPF/CNPJ" class="form-control" maxlength="14" />
+        </div>
+
+        <div class="form-group">
+            <label for="id_tipo_documento">Tipo de Documento</label>
+            <InputNumber id="id_tipo_documento" @bind-Value="consumidor.id_tipo_documento" placeholder="Tipo de documento (ex: 1 para CPF, 2 para CNPJ)" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label for="ds_email">E-mail</label>
+            <InputText id="ds_email" @bind-Value="consumidor.ds_email" placeholder="Digite o e-mail" type="email" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label for="nr_celular">Celular</label>
+            <InputText id="nr_celular" @bind-Value="consumidor.nr_celular" placeholder="Digite o número de celular" class="form-control" maxlength="15" />
+        </div>
+
+        <div class="form-group">
+
+            <label>Sistema de Preferências:</label>
+
+            <div>
+                <label for="fl_crm">CRM</label>
+                <select id="fl_crm" @bind="consumidor.fl_crm" class="form-control">
+                    <option value="S">Sim</option>
+                    <option value="N">Não</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="fl_sms">SMS</label>
+                <select id="fl_sms" @bind="consumidor.fl_sms" class="form-control">
+                    <option value="S">Sim</option>
+                    <option value="N">Não</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="fl_email">E-mail</label>
+                <select id="fl_email" @bind="consumidor.fl_email" class="form-control">
+                    <option value="S">Sim</option>
+                    <option value="N">Não</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="nr_cep">CEP</label>
+            <InputText id="nr_cep" @bind-Value="consumidor.nr_cep" placeholder="Digite o CEP" class="form-control" maxlength="10" />
+        </div>
+
+        <div class="form-group">
+            <label for="ds_endereco">Endereço</label>
+            <InputText id="ds_endereco" @bind-Value="consumidor.ds_endereco" placeholder="Digite o endereço" class="form-control" maxlength="100" />
+        </div>
+
+        <div class="form-group">
+            <label for="ds_bairro">Bairro</label>
+            <InputText id="ds_bairro" @bind-Value="consumidor.ds_bairro" placeholder="Digite o bairro" class="form-control" maxlength="100" />
+        </div>
+
+        <div class="form-group">
+            <label for="nm_cidade">Cidade</label>
+            <InputText id="nm_cidade" @bind-Value="consumidor.nm_cidade" placeholder="Digite a cidade" class="form-control" maxlength="100" />
+        </div>
+
+        <div class="form-group">
+            <label for="sg_uf">UF</label>
+            <InputText id="sg_uf" @bind-Value="consumidor.sg_uf" placeholder="Digite o estado (UF)" class="form-control" maxlength="2" />
+        </div>
+
+        <div class="form-group">
+            <label for="nr_dia_aniversario">Dia de Aniversário</label>
+            <InputNumber id="nr_dia_aniversario" @bind-Value="consumidor.nr_dia_aniversario" placeholder="Dia" class="form-control" maxlength="2" />
+        </div>
+
+        <div class="form-group">
+            <label for="nr_mes_aniversario">Mês de Aniversário</label>
+            <InputNumber id="nr_mes_aniversario" @bind-Value="consumidor.nr_mes_aniversario" placeholder="Mês" class="form-control" maxlength="2" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Cadastrar Consumidor</button>
+        <button @onclick="GoBack" class="btn btn-primary">Desconectar</button>
+        <button @onclick="Menu" class="btn btn-primary">Voltar</button>
+        
+    </EditForm>
+</div>
+@if (error)
+{
+    <div style="color: red;">
+        @MessageError
+    </div>
+}
+else
+{
+   <div>
+       @MessagemSuccessful
+   </div>
+}
+
+@code {
+    private Consumidor consumidor = new Consumidor();
+    private string MessageError = string.Empty;
+    private string MessagemSuccessful = string.Empty;
+    private bool error = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        WebService.OnMessageReceived += UpdateUI;
+        try
+        {
+
+            error = false;
+            // Testando a conexão
+            await WebService.ConnectAsync();
+            if (WebService.isConnect)
+                _ = ListenServer();
+        }
+        catch (WebSocketException wex)
+        {
+            error = true;
+            MessageError = $"Ocorreu um erro ao se conectar à rede";
+            Console.WriteLine($"Erro no WebSocket OnInitializedAsync: {wex.Message}");
+        }
+        catch (Exception ex)
+        {
+            error = true;
+            MessageError = $"Ocorreu um erro ao se conectar à rede";
+            Console.WriteLine($"Erro no OnInitializedAsync: {ex.Message}");
+        }
+    }
+
+    private void Menu()
+    {
+        try
+        {
+            Clear();
+            Navigation.NavigateTo("/MenuPage");
+        }
+        catch (Exception ex)
+        {
+            error = true;
+            MessageError = $"Ocorreu um erro ao tentar voltar pro menu";
+            Console.WriteLine($"Erro no Menu: {ex.Message}");
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        try
+        {
+            byte[] buffer = new byte[128 * 1024];
+         
+            // Serializando o objeto Consumidor em JSON para envio via WebSocket
+            var json = JsonSerializer.Serialize(consumidor);
+            byte[] messageBytes = Encoding.UTF8.GetBytes(json);
+            string result = System.Text.Encoding.UTF8.GetString(messageBytes, 0, messageBytes.Length);
+            // Enviando mensagem ao servidor via WebSocket
+            await WebService.SendMessageAsync($"CadastroPostgres: {result}");
+
+            Console.WriteLine("Dados enviados ao servidor com sucesso.");
+            MessagemSuccessful = "Dados enviados ao servidor com sucesso.";
+        }
+        catch (Exception ex)
+        {
+            error = true;
+            MessageError = $"Ocorreu um erro ao enviar os dados do cliente";
+            Console.WriteLine($"Erro ao enviar dados: {ex.Message}");
+        }
+    }
+
+
+    private void Clear() => WebService.Messages.Clear();
+
+    private void UpdateUI() => InvokeAsync(StateHasChanged);
+
+    private void GoBack()
+    {
+        try
+        {
+            WebService?.DisposeAsync();
+            WebService!.isConnect = false;
+            Clear();
+            Navigation.NavigateTo("/");
+
+        }
+        catch (Exception ex)
+        {
+            error = true;
+            MessageError = $"Ocorreu um erro ao tentar se desconectar do servidor";
+            Console.WriteLine($"Erro no GoBack: {ex.Message}");
+        }
+    }
+
+    public async Task ListenServer()
+    {
+        try
+        {
+            while (WebService.WebSocket.State == WebSocketState.Open)
+            {
+                await WebService.ReceivingMessage();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (Exception ex)
+        {
+            error = true;
+            MessageError = $"Ocorreu um erro ao tentar receber uma mensagem ao servidor";
+            Console.WriteLine($"Erro no ListenServer: {ex.Message}");
+        }
+    }
+
+}

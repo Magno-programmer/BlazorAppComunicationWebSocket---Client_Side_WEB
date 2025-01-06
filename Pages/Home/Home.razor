@@ -1,0 +1,71 @@
+﻿@page "/"
+@using System.Net.WebSockets
+@using System.Text
+@using BlazorAppComunicationWebSocket.Services
+@inject WebSocketService WebService
+@inject NavigationManager Navigation
+
+<h3>WebSocket inforlube - Connection</h3>
+
+<div>
+    <button @onclick="Connect">Conecte ao servidor</button>
+</div>
+
+@if (tentandoConexao)
+{
+    <div>
+        Tentando conexão...
+    </div>
+    
+}
+
+@if (conexaoNaoRealizada)
+{
+    <div style="color: red;">
+        Não há conexão disponível: @errorMessage
+    </div>
+}
+
+@code {
+    private bool conexaoNaoRealizada = false;
+    private bool tentandoConexao = false;
+    private string errorMessage = "";
+
+    private async Task Connect()
+    {
+        try
+        {
+            conexaoNaoRealizada = false;
+            tentandoConexao = true;
+            // Tentativa de conexão
+            await WebService.ConnectAsync();
+
+            if (WebService.isConnect)
+            {
+                tentandoConexao = false;
+                conexaoNaoRealizada = false;
+                Navigation.NavigateTo("/PageLogin");
+            }
+            else
+            {
+                tentandoConexao = false;
+                conexaoNaoRealizada = true;
+                errorMessage = "Não foi possível conectar ao servidor.";
+                Navigation.NavigateTo("/");
+            }
+        }
+        catch (WebSocketException)
+        {
+            tentandoConexao = false;
+            conexaoNaoRealizada = true;
+            errorMessage = "Não foi possível realizar a conexão. O servidor está indisponível.";
+        }
+        catch (Exception ex)
+        {
+            tentandoConexao = false;
+            conexaoNaoRealizada = true;
+            errorMessage = $"Erro inesperado: {ex.Message}";
+            Console.WriteLine($"Ocorreu um erro no Connect: {ex.Message}");
+        }
+    }
+}
